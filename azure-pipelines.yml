@@ -71,7 +71,7 @@ jobs:
     - task: GitHubRelease@1
       inputs:
         gitHubConnection: 'github.com_shenchous'
-        repositoryName: 'shenchous/lede-azure-pipeline'
+        repositoryName: 'shenchous/openwrt-azure-pipeline'
         action: 'create'
         target: '$(Build.SourceVersion)'
         tagSource: 'gitTag'
