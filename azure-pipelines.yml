@@ -1,0 +1,79 @@
+trigger:
+  - master
+
+jobs:
+- job: Build
+  timeoutInMinutes: 0
+
+  pool:
+    vmImage: 'ubuntu-latest'
+
+  variables:
+    workingDirectory: 'lede'
+
+  steps:
+    - script: |
+        sudo apt-get -q -y install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
+        bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib \
+        git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libglib2.0-dev libgmp3-dev libltdl-dev \
+        libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libreadline-dev libssl-dev libtool lrzsz \
+        mkisofs msmtp nano ninja-build p7zip p7zip-full patch pkgconf python2.7 python3 python3-pip libpython3-dev qemu-utils \
+        rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
+      displayName: 'Install dependencies'
+
+    - script: |
+        umask 0022
+        git clone https://github.com/coolsnowwolf/lede
+      displayName: 'Clone lede git repo'
+    
+    - script: |
+        echo 'src-git kenzo https://github.com/kenzok8/openwrt-packages' >> feeds.conf.default
+        echo 'src-git Openclash https://github.com/vernesong/OpenClash' >> feeds.conf.default
+      displayName: 'Add package feeds'
+      
+    - script: |
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+      workingDirectory: $(workingDirectory)
+      displayName: 'Update package feeds'
+
+    - script: |
+        NPROC=`nproc`
+        echo Number of CPUs is $NPROC
+      displayName: 'Print number of CPUs'
+
+    - script: |
+        cp .config $(workingDirectory)
+      displayName: 'Copy .config file'
+
+    - script: |
+        make download -j8
+        find dl -size -1024c -exec ls -l {} \;
+        find dl -size -1024c -exec rm -f {} \;
+        make download -j1
+      workingDirectory: $(workingDirectory)
+      displayName: 'Download package'
+      
+    - script: |
+        make V=s -j`nproc`
+      workingDirectory: $(workingDirectory)
+      displayName: 'Build'
+
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: $(workingDirectory)/bin/targets/x86/64
+        contents: '*'
+        targetFolder: $(Build.ArtifactStagingDirectory)
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Artifact: drop'
+
+    - task: GitHubRelease@1
+      inputs:
+        gitHubConnection: 'github.com_shenchous'
+        repositoryName: 'shenchous/lede-azure-pipeline'
+        action: 'create'
+        target: '$(Build.SourceVersion)'
+        tagSource: 'gitTag'
+        changeLogCompareToRelease: 'lastFullRelease'
+        changeLogType: 'commitBased'
