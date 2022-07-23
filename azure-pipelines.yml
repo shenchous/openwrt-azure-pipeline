@@ -55,7 +55,7 @@ jobs:
       displayName: 'Download package'
       
     - script: |
-        make V=s -j6
+        make V=s -j`nproc`
       workingDirectory: $(workingDirectory)
       displayName: 'Build'
 
